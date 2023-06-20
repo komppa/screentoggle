@@ -1,21 +1,31 @@
 #!/bin/bash
 
-# Get the display IDs dynamically
-DISPLAYS=$(xrandr --query | grep ' connected' | awk '{ print $1 }')
+# Get the connected external display IDs dynamically
+EXTERNAL_DISPLAYS=$(xrandr --query | grep ' connected' | grep -v 'eDP-1' | awk '{ print $1 }')
 
-# Get the status of the displays
-DP1=$(echo $DISPLAYS | awk '{print $1}')
-DP2=$(echo $DISPLAYS | awk '{print $2}')
+# Convert to an array
+readarray -t EXTERNAL_DISPLAYS_ARRAY <<<"$EXTERNAL_DISPLAYS"
 
-DP1_STATUS=$(xrandr --query | grep "$DP1 connected")
-DP2_STATUS=$(xrandr --query | grep "$DP2 connected")
+# Number of connected external displays
+NUM_DISPLAYS=${#EXTERNAL_DISPLAYS_ARRAY[@]}
 
-# Check if DP1 is connected and active
-if [[ $DP1_STATUS = *"+0+0"* ]]; then
-    xrandr --output $DP2 --auto --output $DP1 --off
-elif [[ $DP2_STATUS = *"+0+0"* ]]; then
-    xrandr --output $DP1 --auto --output $DP2 --off
+# Exit if no external displays are connected
+if [ "$NUM_DISPLAYS" -eq 0 ]; then
+    echo "No external displays are connected."
+    exit 1
+fi
+
+# Get the status of the external displays
+ACTIVE_DISPLAY=$(xrandr --query | grep ' connected' | grep '+0+0' | grep -v 'eDP-1' | awk '{ print $1 }')
+
+# Toggle between the external displays
+if [ "$ACTIVE_DISPLAY" == "${EXTERNAL_DISPLAYS_ARRAY[0]}" ]; then
+    # If the first display is active, switch to the second display
+    xrandr --output "${EXTERNAL_DISPLAYS_ARRAY[0]}" --off --output "${EXTERNAL_DISPLAYS_ARRAY[1]}" --auto
+elif [ "$ACTIVE_DISPLAY" == "${EXTERNAL_DISPLAYS_ARRAY[1]}" ]; then
+    # If the second display is active, switch to the first display
+    xrandr --output "${EXTERNAL_DISPLAYS_ARRAY[1]}" --off --output "${EXTERNAL_DISPLAYS_ARRAY[0]}" --auto
 else
-    # If neither is active, turn on DP1
-    xrandr --output $DP1 --auto
+    # If neither is active, turn on the first external display
+    xrandr --output "${EXTERNAL_DISPLAYS_ARRAY[0]}" --auto
 fi
